@@ -32,4 +32,14 @@ public class BiliupConfig {
      * 视频文件存储路径（共享 volume）
      */
     private String videoStoragePath = "/data/videos";
+
+    /**
+     * biliup --auth 认证用户名（固定为 biliup）
+     */
+    private String authUsername = "biliup";
+
+    /**
+     * biliup --auth 认证密码
+     */
+    private String authPassword = "hui123456";
 }

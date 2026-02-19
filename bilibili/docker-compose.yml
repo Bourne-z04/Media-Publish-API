@@ -38,7 +38,9 @@ services:
       - MYSQL_PASSWORD=root123456
       - BILIUP_BASE_URL=http://biliup:19159
       - VIDEO_STORAGE_PATH=/data/videos
-      - AES_SECRET_KEY=${AES_SECRET_KEY:-dGhpc0lzQVRlc3RLZXlGb3JUZXN0T25seQ==}
+      - AES_SECRET_KEY=${AES_SECRET_KEY:-YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY=}
+      - BILIUP_AUTH_USERNAME=biliup
+      - BILIUP_AUTH_PASSWORD=hui123456
     volumes:
       - video-data:/data/videos
     depends_on:
@@ -57,7 +59,7 @@ services:
     container_name: hui-mysql
     restart: unless-stopped
     ports:
-      - "3306:3306"
+      - "3307:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=root123456
       - MYSQL_DATABASE=hui_bilibili

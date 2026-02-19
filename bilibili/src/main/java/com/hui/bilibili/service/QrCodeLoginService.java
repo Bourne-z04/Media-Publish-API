@@ -35,8 +35,9 @@ public class QrCodeLoginService {
         log.debug("QR code response from biliup: {}", result);
 
         // 解析 biliup 返回的二维码信息
+        // biliup 返回格式: {"code":0,"data":{"auth_code":"...","url":"..."}}
         String qrcodeUrl = extractField(result, "url", "qrcode_url", "qrcodeUrl");
-        String qrcodeKey = extractField(result, "qrcode_key", "qrcodeKey", "key");
+        String qrcodeKey = extractField(result, "auth_code", "qrcode_key", "qrcodeKey", "key");
 
         if (qrcodeUrl == null || qrcodeKey == null) {
             log.error("Invalid QR code response from biliup: {}", result);

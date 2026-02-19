@@ -24,11 +24,6 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
 
-  jackson:
-    default-property-inclusion: non_null
-    serialization:
-      write-dates-as-timestamps: false
-
 # biliup 连接配置
 biliup:
   base-url: ${BILIUP_BASE_URL:http://localhost:19159}

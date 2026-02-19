@@ -1,6 +1,6 @@
 package com.hui.bilibili.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.hui.bilibili.client.BiliupClient;
 import com.hui.bilibili.model.dto.LoginStatusResponse;
 import com.hui.bilibili.model.dto.QrCodeResponse;

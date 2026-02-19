@@ -1,8 +1,8 @@
 package com.hui.bilibili.client;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.hui.bilibili.config.BiliupConfig;
 import com.hui.bilibili.model.dto.PublishRequest;
 import lombok.RequiredArgsConstructor;

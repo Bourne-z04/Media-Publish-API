@@ -88,17 +88,40 @@ public class VideoUploadService {
 
     /**
      * 发布视频到 B站
+     * <p>
+     * 发布前自动检查 Cookie 有效性：
+     * 1. 检查数据库中是否有有效 Cookie 记录
+     * 2. 检查 biliup 容器中 cookie 文件是否存在，不存在则从数据库恢复
+     * 3. 通过 biliup API 验证 cookie 是否仍可用
+     * 4. 验证通过后提交发布任务
      *
      * @param request 发布请求
      * @return 发布任务信息
      */
     public PublishResponse publishVideo(PublishRequest request) {
-        // 验证用户 Cookie 是否有效
-        if (!cookieStorageService.isCookieValid(request.getUserId())) {
-            throw new RuntimeException("用户 Cookie 不存在或已过期，请重新登录");
+        String userId = request.getUserId();
+
+        // 1. 检查数据库中是否有有效 Cookie 记录
+        if (!cookieStorageService.isCookieValid(userId)) {
+            throw new RuntimeException("用户 Cookie 不存在或已过期，请重新扫码登录");
         }
 
-        // 调用 biliup 提交发布任务
+        // 2. 确保 biliup 容器中 cookie 文件存在，不存在则从数据库恢复
+        ensureCookieFileExists(userId);
+
+        // 3. 通过 biliup API 验证 cookie 是否仍可用（调用 B站接口）
+        try {
+            String cookieFilePath = "data/" + userId + ".json";
+            biliupClient.getUserInfo(cookieFilePath);
+            log.info("Cookie 验证通过, userId={}", userId);
+        } catch (Exception e) {
+            log.warn("Cookie 验证失败, userId={}: {}", userId, e.getMessage());
+            // cookie 已失效，删除数据库记录
+            cookieStorageService.deleteCookie(userId);
+            throw new RuntimeException("B站登录已失效，请重新扫码登录");
+        }
+
+        // 4. 提交发布任务
         JsonNode result = biliupClient.submitUpload(request);
         log.debug("Publish response from biliup: {}", result);
 
@@ -172,6 +195,49 @@ public class VideoUploadService {
     }
 
     // ==================== 私有方法 ====================
+
+    /**
+     * 确保 biliup 容器中 cookie 文件存在
+     * <p>
+     * 如果 cookie 文件不存在（例如容器重建），从数据库中恢复。
+     * 恢复后重新注册到 biliup 用户列表。
+     *
+     * @param userId B站用户 mid
+     */
+    private void ensureCookieFileExists(String userId) {
+        String filename = "data/" + userId + ".json";
+        Path cookiePath = Path.of(biliupConfig.getCookieStoragePath(), filename);
+
+        if (Files.exists(cookiePath)) {
+            log.debug("Cookie 文件已存在: {}", cookiePath);
+            return;
+        }
+
+        log.info("Cookie 文件不存在: {}，尝试从数据库恢复...", cookiePath);
+        try {
+            String cookieContent = cookieStorageService.getCookie(userId);
+
+            // 确保目录存在
+            Path parentDir = cookiePath.getParent();
+            if (!Files.exists(parentDir)) {
+                Files.createDirectories(parentDir);
+            }
+
+            // 写入 cookie 文件
+            Files.writeString(cookiePath, cookieContent);
+            log.info("Cookie 文件已从数据库恢复: {}", cookiePath);
+
+            // 重新注册到 biliup 用户列表
+            biliupClient.registerBiliUser(filename);
+            log.info("已重新注册 cookie 到 biliup 用户列表");
+        } catch (IOException e) {
+            log.error("恢复 cookie 文件失败, userId={}: {}", userId, e.getMessage());
+            throw new RuntimeException("Cookie 恢复失败，请重新扫码登录");
+        } catch (RuntimeException e) {
+            log.error("从数据库获取 cookie 失败, userId={}: {}", userId, e.getMessage());
+            throw new RuntimeException("Cookie 已过期，请重新扫码登录");
+        }
+    }
 
     /**
      * 获取文件扩展名

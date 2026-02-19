@@ -35,6 +35,25 @@ public class BilibiliController {
     // ==================== 登录相关 ====================
 
     /**
+     * 检查用户登录状态
+     * <p>
+     * 前端在用户进入发布页面时调用此接口：
+     * - status=CONFIRMED：Cookie 有效，用户可直接发布，无需重新扫码
+     * - status=EXPIRED：Cookie 已失效，需要引导用户重新扫码登录
+     */
+    @GetMapping("/login/status")
+    public ApiResult<LoginStatusResponse> checkLoginStatus(@RequestParam String userId) {
+        log.info("API: GET /api/bilibili/login/status, userId={}", userId);
+        try {
+            LoginStatusResponse response = qrCodeLoginService.checkLoginStatus(userId);
+            return ApiResult.success(response);
+        } catch (Exception e) {
+            log.error("检查登录状态失败", e);
+            return ApiResult.error(500, "检查登录状态失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 获取登录二维码
      * <p>
      * 调用 biliup 获取 B站登录二维码 URL 和 qrcodeKey，

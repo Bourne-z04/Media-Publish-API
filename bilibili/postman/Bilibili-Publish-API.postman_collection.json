@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Bilibili Publish API",
-    "description": "B站视频一键发布 API 测试集合\n\n测试顺序：\n1. 获取登录二维码\n2. 轮询登录状态（扫码后）\n3. 获取用户信息\n4. 上传视频文件\n5. 发布视频\n6. 查询上传状态",
+    "description": "B站视频一键发布 API 测试集合\n\n测试顺序：\n1. 获取登录二维码\n2. 轮询登录状态（扫码后）\n3. 检查登录状态（判断是否需要重新扫码）\n4. 获取用户信息\n5. 上传视频文件\n6. 发布视频\n7. 查询上传状态",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -152,6 +152,73 @@
                 { "key": "Content-Type", "value": "application/json" }
               ],
               "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"status\": \"EXPIRED\",\n    \"message\": \"二维码已过期，请重新获取\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "1.3 检查登录状态",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('状态码为200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var json = pm.response.json();",
+                  "",
+                  "pm.test('返回登录状态', function () {",
+                  "    pm.expect(json.code).to.eql(200);",
+                  "    pm.expect(json.data).to.have.property('status');",
+                  "});",
+                  "",
+                  "var status = json.data.status;",
+                  "if (status === 'CONFIRMED') {",
+                  "    console.log('✅ Cookie有效，可直接发布! username=' + json.data.username);",
+                  "} else if (status === 'EXPIRED') {",
+                  "    console.log('❌ Cookie已过期，需要重新扫码: ' + json.data.message);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bilibili/login/status?userId=3494365068528056",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bilibili", "login", "status"],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "3494365068528056",
+                  "description": "B站用户mid，从扫码登录获取"
+                }
+              ]
+            },
+            "description": "检查用户的B站登录是否仍然有效。\n\n前端在用户进入发布页面时调用此接口：\n- status=CONFIRMED：Cookie有效，可直接发布视频，无需重新扫码\n- status=EXPIRED：Cookie已失效或过期，需引导用户重新扫码登录\n\n此接口会同时验证数据库记录和B站Cookie的实际有效性。"
+          },
+          "response": [
+            {
+              "name": "Cookie有效",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"status\": \"CONFIRMED\",\n    \"message\": \"登录有效\",\n    \"userId\": \"3494365068528056\",\n    \"username\": \"用户昵称\"\n  }\n}"
+            },
+            {
+              "name": "Cookie已过期",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"status\": \"EXPIRED\",\n    \"message\": \"登录已过期，请重新扫码\",\n    \"userId\": \"3494365068528056\"\n  }\n}"
             }
           ]
         }

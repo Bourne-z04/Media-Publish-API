@@ -34,6 +34,12 @@ public class BiliupConfig {
     private String videoStoragePath = "/data/videos";
 
     /**
+     * biliup cookie 文件存储路径（共享 volume，biliup 容器中 /opt 映射）
+     * bilibili-api 容器中挂载为 /biliup-data
+     */
+    private String cookieStoragePath = "/biliup-data";
+
+    /**
      * biliup --auth 认证用户名（固定为 biliup）
      */
     private String authUsername = "biliup";

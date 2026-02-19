@@ -16,8 +16,8 @@ public class RestTemplateConfig {
     @Bean
     public RestTemplate restTemplate(RestTemplateBuilder builder, BiliupConfig biliupConfig) {
         return builder
-                .connectTimeout(Duration.ofMillis(biliupConfig.getConnectTimeout()))
-                .readTimeout(Duration.ofMillis(biliupConfig.getReadTimeout()))
+                .setConnectTimeout(Duration.ofMillis(biliupConfig.getConnectTimeout()))
+                .setReadTimeout(Duration.ofMillis(biliupConfig.getReadTimeout()))
                 .build();
     }
 }

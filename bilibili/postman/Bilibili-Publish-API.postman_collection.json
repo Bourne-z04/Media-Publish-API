@@ -1,0 +1,382 @@
+{
+  "info": {
+    "name": "Bilibili Publish API",
+    "description": "B站视频一键发布 API 测试集合\n\n测试顺序：\n1. 获取登录二维码\n2. 轮询登录状态（扫码后）\n3. 获取用户信息\n4. 上传视频文件\n5. 发布视频\n6. 查询上传状态",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "qrcodeKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "taskId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "uploadedFilePath",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. 登录流程",
+      "description": "B站扫码登录流程",
+      "item": [
+        {
+          "name": "1.1 获取登录二维码",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('状态码为200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('返回二维码数据', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql(200);",
+                  "    pm.expect(json.data).to.have.property('qrcodeUrl');",
+                  "    pm.expect(json.data).to.have.property('qrcodeKey');",
+                  "    ",
+                  "    // 自动保存 qrcodeKey 到变量",
+                  "    pm.collectionVariables.set('qrcodeKey', json.data.qrcodeKey);",
+                  "    ",
+                  "    console.log('二维码URL: ' + json.data.qrcodeUrl);",
+                  "    console.log('qrcodeKey: ' + json.data.qrcodeKey);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bilibili/qrcode",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bilibili", "qrcode"]
+            },
+            "description": "获取B站登录二维码。\n\n返回的 qrcodeUrl 可用浏览器打开或生成二维码图片，用B站APP扫码登录。\n\nqrcodeKey 会自动保存到集合变量，供后续轮询使用。"
+          },
+          "response": [
+            {
+              "name": "成功示例",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"qrcodeUrl\": \"https://passport.bilibili.com/x/passport-tv-login/h5/qrcode/auth?auth_code=9f5dee5137d48273d07ec2259fe46601\",\n    \"qrcodeKey\": \"9f5dee5137d48273d07ec2259fe46601\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "1.2 轮询登录状态",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('状态码为200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var json = pm.response.json();",
+                  "",
+                  "pm.test('返回登录状态', function () {",
+                  "    pm.expect(json.code).to.eql(200);",
+                  "    pm.expect(json.data).to.have.property('status');",
+                  "});",
+                  "",
+                  "// 根据状态输出提示",
+                  "var status = json.data.status;",
+                  "if (status === 'WAITING') {",
+                  "    console.log('⏳ 等待扫码...');",
+                  "} else if (status === 'SCANNED') {",
+                  "    console.log('📱 已扫码，等待确认...');",
+                  "} else if (status === 'CONFIRMED') {",
+                  "    console.log('✅ 登录成功! userId=' + json.data.userId);",
+                  "} else if (status === 'EXPIRED') {",
+                  "    console.log('❌ 二维码已过期，请重新获取');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qrcodeKey\": \"{{qrcodeKey}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bilibili/qrcode/poll",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bilibili", "qrcode", "poll"]
+            },
+            "description": "轮询扫码登录状态。\n\n使用上一步获取的 qrcodeKey（已自动填充）。\n\n状态值：\n- WAITING：等待扫码\n- SCANNED：已扫码，等待确认\n- CONFIRMED：登录成功\n- EXPIRED：二维码过期"
+          },
+          "response": [
+            {
+              "name": "等待扫码",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"status\": \"WAITING\",\n    \"message\": \"等待扫码\"\n  }\n}"
+            },
+            {
+              "name": "登录成功",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"status\": \"CONFIRMED\",\n    \"message\": \"登录成功\",\n    \"userId\": \"12345678\",\n    \"username\": \"testuser\"\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. 用户信息",
+      "description": "获取已登录的B站用户信息",
+      "item": [
+        {
+          "name": "2.1 获取用户信息",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('状态码为200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('返回用户信息', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql(200);",
+                  "    console.log('用户信息: ' + JSON.stringify(json.data));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bilibili/user/info",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bilibili", "user", "info"]
+            },
+            "description": "获取当前登录的B站用户信息（头像、昵称、等级等）。\n\n需要先完成扫码登录。"
+          },
+          "response": [
+            {
+              "name": "成功示例",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"mid\": 12345678,\n    \"name\": \"testuser\",\n    \"face\": \"https://i0.hdslb.com/bfs/face/xxx.jpg\",\n    \"level\": 5\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. 视频发布",
+      "description": "视频上传与发布流程",
+      "item": [
+        {
+          "name": "3.1 上传视频文件",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('状态码为200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('返回文件路径', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql(200);",
+                  "    pm.expect(json.data).to.have.property('filePath');",
+                  "    ",
+                  "    // 自动保存文件路径到变量",
+                  "    pm.collectionVariables.set('uploadedFilePath', json.data.filePath);",
+                  "    console.log('文件已上传: ' + json.data.filePath);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "选择要上传的视频文件（mp4/flv/avi）"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bilibili/upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bilibili", "upload"]
+            },
+            "description": "上传视频文件到服务器共享存储。\n\n支持格式：mp4, flv, avi 等\n最大文件大小：4096MB\n\n上传成功后 filePath 会自动保存，供发布步骤使用。"
+          },
+          "response": [
+            {
+              "name": "上传成功",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"filePath\": \"/data/videos/1708300000_test.mp4\",\n    \"fileName\": \"test.mp4\",\n    \"fileSize\": 104857600\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "3.2 发布视频",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('状态码为200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('返回任务ID', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql(200);",
+                  "    ",
+                  "    if (json.data && json.data.taskId) {",
+                  "        pm.collectionVariables.set('taskId', json.data.taskId);",
+                  "        console.log('发布任务ID: ' + json.data.taskId);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"测试视频 - API自动发布\",\n  \"desc\": \"这是通过 HUI 发布系统上传的测试视频\",\n  \"tid\": 17,\n  \"tag\": \"测试,API,自动发布\",\n  \"videoPath\": \"{{uploadedFilePath}}\",\n  \"copyright\": 1,\n  \"source\": \"\",\n  \"dynamic\": \"#测试# 通过API自动发布\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bilibili/publish",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bilibili", "publish"]
+            },
+            "description": "将已上传的视频发布到B站。\n\n必填字段：\n- title：视频标题\n- desc：视频简介\n- tid：分区ID（17=单机游戏, 21=日常, 95=数码, 122=野生技术协会 等）\n- tag：标签（逗号分隔）\n- videoPath：上传步骤返回的文件路径\n\n可选字段：\n- copyright：1=自制, 2=转载\n- source：转载来源\n- dynamic：动态文字\n- dtime：定时发布时间戳（秒）\n- coverPath：封面图路径\n- dolby：杜比音效 0/1\n- openSubtitle：开放字幕 0/1"
+          },
+          "response": [
+            {
+              "name": "发布成功",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"taskId\": \"task_1708300000\",\n    \"status\": \"PENDING\",\n    \"message\": \"发布任务已提交\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "3.3 查询上传状态",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('状态码为200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('返回任务状态', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.code).to.eql(200);",
+                  "    console.log('任务状态: ' + JSON.stringify(json.data));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bilibili/upload/status/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bilibili", "upload", "status", "{{taskId}}"]
+            },
+            "description": "查询视频发布任务的处理状态。\n\n使用发布步骤返回的 taskId（已自动填充）。\n\n状态值：\n- PENDING：等待处理\n- UPLOADING：上传中\n- PROCESSING：处理中\n- SUCCESS：发布成功\n- FAILED：发布失败"
+          },
+          "response": [
+            {
+              "name": "上传中",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"taskId\": \"task_1708300000\",\n    \"status\": \"UPLOADING\",\n    \"progress\": 45,\n    \"message\": \"上传中 45%\"\n  }\n}"
+            },
+            {
+              "name": "发布成功",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"taskId\": \"task_1708300000\",\n    \"status\": \"SUCCESS\",\n    \"message\": \"发布成功\",\n    \"bvid\": \"BV1xx411c7Xp\"\n  }\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

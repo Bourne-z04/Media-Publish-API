@@ -1,0 +1,22 @@
+我在实现“自媒体平台一键代发布”（B站/抖音/小红书）。
+
+首先实现B站代发布：
+用户在我的web应用上登录B站账号，自行编辑好视频、图片、文案后，点击一键发布后实现B站投稿。
+
+当前任务为：编写发布后端API，调用API即可发布视频。
+
+1.扫码登录获取Cookie
+（1）后端调用 B站 API 获取登录二维码 URL 和 oauthKey
+（2）前端展示二维码
+（3）后端轮询检查登录状态
+（4）一旦登录成功，获取 Cookie 字符串，加密存储在数据库中
+（5）在触发上传任务时，将数据库中的 Cookie 临时写入 json 文件供 biliup 使用
+
+2.使用http请求调用biliup-rs
+（https://github.com/biliup/biliup）
+（https://github.com/limitcool/biliup-http）
+
+要求：
+1.封装为Java API工具类，我会使用postman测试api
+2.使用微服务架构，docker部署，biliup-rs作为一个独立的 Docker 容器运行，提供 HTTP 服务
+

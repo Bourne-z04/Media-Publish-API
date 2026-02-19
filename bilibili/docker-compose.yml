@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # biliup — B站上传引擎 (官方 Docker 镜像)
+  # 提供 QR 登录、视频上传、用户管理等 REST API
+  # ============================================
+  biliup:
+    image: ghcr.io/biliup/caution:latest
+    container_name: hui-biliup
+    restart: unless-stopped
+    ports:
+      - "19159:19159"
+    volumes:
+      - video-data:/data/videos
+      - biliup-data:/opt
+    command: server --auth
+    networks:
+      - hui-network
+
+  # ============================================
+  # bilibili-api — Java Spring Boot 微服务
+  # 封装 biliup 接口，提供统一的发布 API
+  # ============================================
+  bilibili-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hui-bilibili-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=hui_bilibili
+      - MYSQL_USERNAME=root
+      - MYSQL_PASSWORD=root123456
+      - BILIUP_BASE_URL=http://biliup:19159
+      - VIDEO_STORAGE_PATH=/data/videos
+      - AES_SECRET_KEY=${AES_SECRET_KEY:-dGhpc0lzQVRlc3RLZXlGb3JUZXN0T25seQ==}
+    volumes:
+      - video-data:/data/videos
+    depends_on:
+      mysql:
+        condition: service_healthy
+      biliup:
+        condition: service_started
+    networks:
+      - hui-network
+
+  # ============================================
+  # MySQL 8.0 — Cookie 加密存储
+  # ============================================
+  mysql:
+    image: mysql:8.0
+    container_name: hui-mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123456
+      - MYSQL_DATABASE=hui_bilibili
+      - MYSQL_CHARACTER_SET_SERVER=utf8mb4
+      - MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hui-network
+
+volumes:
+  video-data:
+    driver: local
+  biliup-data:
+    driver: local
+  mysql-data:
+    driver: local
+
+networks:
+  hui-network:
+    driver: bridge

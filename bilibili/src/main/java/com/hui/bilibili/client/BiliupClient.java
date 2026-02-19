@@ -12,6 +12,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URI;
 
 import java.util.List;
 import java.util.Map;
@@ -137,16 +140,23 @@ public class BiliupClient {
      * 执行带认证的 GET 请求，401 时自动重试
      */
     private JsonNode authGet(String url) {
+        return authGet(URI.create(url));
+    }
+
+    /**
+     * 执行带认证的 GET 请求（URI 版本，避免二次编码）
+     */
+    private JsonNode authGet(URI uri) {
         try {
             HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders());
-            ResponseEntity<String> resp = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+            ResponseEntity<String> resp = restTemplate.exchange(uri, HttpMethod.GET, entity, String.class);
             return objectMapper.readTree(resp.getBody());
         } catch (RestClientException e) {
             if (e.getMessage() != null && e.getMessage().contains("401")) {
                 log.info("biliup session expired, re-authenticating...");
                 authenticate();
                 HttpEntity<Void> entity = new HttpEntity<>(createAuthHeaders());
-                ResponseEntity<String> resp = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+                ResponseEntity<String> resp = restTemplate.exchange(uri, HttpMethod.GET, entity, String.class);
                 try { return objectMapper.readTree(resp.getBody()); } catch (Exception ex) { throw new RuntimeException(ex); }
             }
             throw e;
@@ -234,17 +244,43 @@ public class BiliupClient {
     // ==================== 用户信息 ====================
 
     /**
-     * 获取当前登录用户信息
-     * GET /bili/space/myinfo
+     * 获取 B站用户信息
+     * GET /bili/space/myinfo?user={cookieFilePath}
+     *
+     * @param cookieFilePath cookie 文件路径，格式如 "data/3494365068528056.json"
      */
-    public JsonNode getUserInfo() {
-        String url = biliupConfig.getBaseUrl() + "/bili/space/myinfo";
-        log.info("Requesting user info from biliup: {}", url);
+    public JsonNode getUserInfo(String cookieFilePath) {
+        URI uri = UriComponentsBuilder.fromUriString(biliupConfig.getBaseUrl() + "/bili/space/myinfo")
+                .queryParam("user", cookieFilePath)
+                .build()
+                .encode()
+                .toUri();
+        log.info("Requesting user info from biliup: {}", uri);
         try {
-            return authGet(url);
+            return authGet(uri);
         } catch (Exception e) {
             log.error("Failed to get user info from biliup", e);
             throw new RuntimeException("获取用户信息失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 注册 B站 Cookie 文件到 biliup 用户列表
+     * POST /v1/users  body: {"key":"bilibili-cookies","value":"data/{mid}.json"}
+     *
+     * @param cookieFilePath QR 登录返回的 filename，如 "data/3494365068528056.json"
+     */
+    public void registerBiliUser(String cookieFilePath) {
+        String url = biliupConfig.getBaseUrl() + "/v1/users";
+        log.info("Registering B站 cookie file in biliup: {}", cookieFilePath);
+        try {
+            ObjectNode body = objectMapper.createObjectNode();
+            body.put("key", "bilibili-cookies");
+            body.put("value", cookieFilePath);
+            authPost(url, objectMapper.writeValueAsString(body));
+            log.info("B站 cookie file registered successfully");
+        } catch (Exception e) {
+            log.warn("Failed to register B站 cookie file: {}", e.getMessage());
         }
     }
 

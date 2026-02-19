@@ -186,9 +186,10 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/bilibili/user/info",
+              "raw": "{{baseUrl}}/api/bilibili/user/info?userId=3494365068528056",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "bilibili", "user", "info"]
+              "path": ["api", "bilibili", "user", "info"],
+              "query": [{"key": "userId", "value": "3494365068528056", "description": "B站用户ID（可选）"}]
             },
             "description": "获取当前登录的B站用户信息（头像、昵称、等级等）。\n\n需要先完成扫码登录。"
           },

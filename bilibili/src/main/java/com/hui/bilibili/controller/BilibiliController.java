@@ -87,7 +87,7 @@ public class BilibiliController {
     public ApiResult<UserInfoResponse> getUserInfo(@RequestParam String userId) {
         log.info("API: GET /api/bilibili/user/info, userId={}", userId);
         try {
-            UserInfoResponse response = videoUploadService.getUserInfo();
+            UserInfoResponse response = videoUploadService.getUserInfo(userId);
             return ApiResult.success(response);
         } catch (Exception e) {
             log.error("获取用户信息失败", e);

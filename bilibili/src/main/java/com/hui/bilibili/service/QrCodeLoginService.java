@@ -75,7 +75,10 @@ public class QrCodeLoginService {
                 userId = userId.substring(0, userId.length() - 5);
             }
 
-            log.info("B站扫码登录成功, userId={}", userId);
+            // 注册 cookie 文件到 biliup 用户列表（key=bilibili-cookies）
+            biliupClient.registerBiliUser(filename);
+
+            log.info("B站扫码登录成功, userId={}, cookieFile={}", userId, filename);
 
             return LoginStatusResponse.builder()
                     .status("CONFIRMED")

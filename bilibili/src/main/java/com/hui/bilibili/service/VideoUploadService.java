@@ -150,10 +150,12 @@ public class VideoUploadService {
     /**
      * 获取 B站用户信息
      *
+     * @param userId B站用户 mid
      * @return 用户信息
      */
-    public UserInfoResponse getUserInfo() {
-        JsonNode result = biliupClient.getUserInfo();
+    public UserInfoResponse getUserInfo(String userId) {
+        String cookieFilePath = "data/" + userId + ".json";
+        JsonNode result = biliupClient.getUserInfo(cookieFilePath);
         log.debug("User info from biliup: {}", result);
 
         // 解析 biliup 返回的用户信息

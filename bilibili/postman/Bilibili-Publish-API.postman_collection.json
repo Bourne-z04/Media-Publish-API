@@ -132,18 +132,9 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "bilibili", "qrcode", "poll"]
             },
-            "description": "轮询扫码登录状态。\n\n使用上一步获取的 qrcodeKey（已自动填充）。\n\n状态值：\n- WAITING：等待扫码\n- SCANNED：已扫码，等待确认\n- CONFIRMED：登录成功\n- EXPIRED：二维码过期"
+            "description": "等待扫码登录完成（阻塞式长轮询）。\n\n⚠️ 此接口会阻塞等待最长 300 秒，直到用户扫码确认或二维码过期。\n请在 Postman Settings 中将 Request timeout 设置为 300000ms（5分钟）。\n\n使用流程：\n1. 先调用 1.1 获取二维码\n2. 用B站APP扫描二维码\n3. 调用此接口等待结果\n\n状态值：\n- CONFIRMED：登录成功\n- EXPIRED：二维码过期或超时"
           },
           "response": [
-            {
-              "name": "等待扫码",
-              "status": "OK",
-              "code": 200,
-              "header": [
-                { "key": "Content-Type", "value": "application/json" }
-              ],
-              "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"status\": \"WAITING\",\n    \"message\": \"等待扫码\"\n  }\n}"
-            },
             {
               "name": "登录成功",
               "status": "OK",
@@ -151,7 +142,16 @@
               "header": [
                 { "key": "Content-Type", "value": "application/json" }
               ],
-              "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"status\": \"CONFIRMED\",\n    \"message\": \"登录成功\",\n    \"userId\": \"12345678\",\n    \"username\": \"testuser\"\n  }\n}"
+              "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"status\": \"CONFIRMED\",\n    \"message\": \"登录成功\",\n    \"userId\": \"12345678\"\n  }\n}"
+            },
+            {
+              "name": "二维码过期",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "application/json" }
+              ],
+              "body": "{\n  \"code\": 200,\n  \"message\": \"success\",\n  \"data\": {\n    \"status\": \"EXPIRED\",\n    \"message\": \"二维码已过期，请重新获取\"\n  }\n}"
             }
           ]
         }

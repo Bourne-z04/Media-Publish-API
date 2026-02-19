@@ -9,6 +9,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -198,19 +199,35 @@ public class BiliupClient {
     }
 
     /**
-     * 通过二维码登录
+     * 通过二维码登录（阻塞式长轮询，最长等待 300 秒）
      * POST /v1/login_by_qrcode
+     * <p>
+     * biliup 要求请求体为完整 QR 码响应格式：{"code":0,"data":{"auth_code":"xxx"},"message":"0","ttl":1}
+     * 内部会提取 body["data"]["auth_code"]，然后循环轮询 B站直到用户扫码或超时。
+     * 成功返回 {"filename":"data/{mid}.json"}
      */
-    public JsonNode loginByQrCode(String qrcodeKey) {
+    public JsonNode loginByQrCode(String authCode) {
         String url = biliupConfig.getBaseUrl() + "/v1/login_by_qrcode";
-        log.info("Polling login status for qrcodeKey: {}", qrcodeKey);
+        log.info("Starting QR code login (blocking, up to 300s) for authCode: {}", authCode);
         try {
+            // 构造 biliup 期望的完整 QR 码响应格式
+            ObjectNode data = objectMapper.createObjectNode();
+            data.put("auth_code", authCode);
             ObjectNode body = objectMapper.createObjectNode();
-            body.put("qrcode_key", qrcodeKey);
+            body.put("code", 0);
+            body.set("data", data);
+            body.put("message", "0");
+            body.put("ttl", 1);
             return authPost(url, objectMapper.writeValueAsString(body));
+        } catch (ResourceAccessException e) {
+            // 超时 = 用户未在有效期内扫码
+            log.warn("QR code login timed out (user did not scan in time)");
+            ObjectNode timeout = objectMapper.createObjectNode();
+            timeout.put("status", "TIMEOUT");
+            return timeout;
         } catch (Exception e) {
-            log.error("Failed to poll login status from biliup", e);
-            throw new RuntimeException("biliup 服务不可用: " + e.getMessage(), e);
+            log.error("QR code login failed", e);
+            throw new RuntimeException("二维码登录失败: " + e.getMessage(), e);
         }
     }
 

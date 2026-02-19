@@ -53,10 +53,11 @@ public class BilibiliController {
     }
 
     /**
-     * 轮询登录状态
+     * 等待扫码登录完成（阻塞式）
      * <p>
-     * 前端每 2 秒调用一次，传入 qrcodeKey 检查用户是否已扫码登录。
-     * 登录成功后会自动将 Cookie 加密存储到数据库。
+     * 调用后会阻塞等待用户扫码确认，最长等待 300 秒。
+     * 用户应先获取二维码并扫码，然后调用此接口等待结果。
+     * 注意：此接口为长轮询，Postman/客户端超时需设置为 5 分钟以上。
      */
     @PostMapping("/qrcode/poll")
     public ApiResult<LoginStatusResponse> pollLoginStatus(@RequestBody Map<String, String> body) {

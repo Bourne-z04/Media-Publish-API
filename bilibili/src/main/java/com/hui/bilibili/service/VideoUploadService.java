@@ -7,6 +7,8 @@ import com.hui.bilibili.model.dto.PublishRequest;
 import com.hui.bilibili.model.dto.PublishResponse;
 import com.hui.bilibili.model.dto.UploadResponse;
 import com.hui.bilibili.model.dto.UserInfoResponse;
+import com.hui.bilibili.model.entity.PublishTask;
+import com.hui.bilibili.repository.PublishTaskRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -34,6 +37,7 @@ public class VideoUploadService {
     private final BiliupClient biliupClient;
     private final BiliupConfig biliupConfig;
     private final CookieStorageService cookieStorageService;
+    private final PublishTaskRepository publishTaskRepository;
 
     /**
      * 上传视频文件到服务器共享存储
@@ -121,26 +125,42 @@ public class VideoUploadService {
             throw new RuntimeException("B站登录已失效，请重新扫码登录");
         }
 
-        // 4. 提交发布任务
-        JsonNode result = biliupClient.submitUpload(request);
-        log.debug("Publish response from biliup: {}", result);
+        // 4. 生成任务 ID 并记录到数据库
+        String taskId = UUID.randomUUID().toString();
+        PublishTask task = PublishTask.builder()
+                .taskId(taskId)
+                .userId(userId)
+                .videoPath(request.getVideoPath())
+                .title(request.getTitle())
+                .status("SUBMITTED")
+                .message("发布任务已提交")
+                .submittedAt(LocalDateTime.now())
+                .build();
+        publishTaskRepository.save(task);
+        log.info("发布任务已记录, taskId={}", taskId);
 
-        // 解析结果
-        String taskId = null;
-        String status = "PROCESSING";
+        // 5. 提交到 biliup（biliup 异步处理，返回 {}）
+        try {
+            JsonNode result = biliupClient.submitUpload(request);
+            log.debug("Publish response from biliup: {}", result);
 
-        if (result.has("task_id")) {
-            taskId = result.get("task_id").asText();
-        }
-        if (result.has("state")) {
-            String state = result.get("state").asText();
-            status = mapBiliupState(state);
+            // biliup 接受了请求，更新状态为 PROCESSING
+            task.setStatus("PROCESSING");
+            task.setMessage("视频正在上传到B站");
+            publishTaskRepository.save(task);
+        } catch (Exception e) {
+            // 提交失败，更新状态
+            task.setStatus("FAILED");
+            task.setMessage("提交失败: " + e.getMessage());
+            task.setCompletedAt(LocalDateTime.now());
+            publishTaskRepository.save(task);
+            throw e;
         }
 
         return PublishResponse.builder()
                 .taskId(taskId)
-                .status(status)
-                .message("发布任务已提交")
+                .status(task.getStatus())
+                .message(task.getMessage())
                 .build();
     }
 
@@ -151,22 +171,13 @@ public class VideoUploadService {
      * @return 任务状态
      */
     public PublishResponse getUploadStatus(String taskId) {
-        JsonNode result = biliupClient.getUploadStatus(taskId);
-        log.debug("Upload status from biliup: {}", result);
-
-        String status = "PROCESSING";
-        String message = "处理中";
-
-        if (result.has("state")) {
-            String state = result.get("state").asText();
-            status = mapBiliupState(state);
-            message = mapBiliupMessage(state);
-        }
+        PublishTask task = publishTaskRepository.findByTaskId(taskId)
+                .orElseThrow(() -> new RuntimeException("任务不存在: " + taskId));
 
         return PublishResponse.builder()
-                .taskId(taskId)
-                .status(status)
-                .message(message)
+                .taskId(task.getTaskId())
+                .status(task.getStatus())
+                .message(task.getMessage())
                 .build();
     }
 

@@ -1,13 +1,14 @@
 server:
   port: 8080
-  servlet:
-    multipart:
-      max-file-size: 4096MB
-      max-request-size: 4096MB
 
 spring:
   application:
     name: bilibili-publish-api
+
+  servlet:
+    multipart:
+      max-file-size: 4096MB
+      max-request-size: 4096MB
 
   datasource:
     url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:hui_bilibili}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=UTF-8

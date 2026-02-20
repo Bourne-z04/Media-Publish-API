@@ -24,6 +24,11 @@
       "key": "uploadedFilePath",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "3494365068528056",
+      "type": "string"
     }
   ],
   "item": [
@@ -293,11 +298,11 @@
                   "pm.test('返回文件路径', function () {",
                   "    var json = pm.response.json();",
                   "    pm.expect(json.code).to.eql(200);",
-                  "    pm.expect(json.data).to.have.property('filePath');",
+                  "    pm.expect(json.data).to.have.property('videoPath');",
                   "    ",
                   "    // 自动保存文件路径到变量",
-                  "    pm.collectionVariables.set('uploadedFilePath', json.data.filePath);",
-                  "    console.log('文件已上传: ' + json.data.filePath);",
+                  "    pm.collectionVariables.set('uploadedFilePath', json.data.videoPath);",
+                  "    console.log('文件已上传: ' + json.data.videoPath);",
                   "});"
                 ]
               }
@@ -371,7 +376,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"测试视频 - API自动发布\",\n  \"desc\": \"这是通过 HUI 发布系统上传的测试视频\",\n  \"tid\": 17,\n  \"tag\": \"测试,API,自动发布\",\n  \"videoPath\": \"{{uploadedFilePath}}\",\n  \"copyright\": 1,\n  \"source\": \"\",\n  \"dynamic\": \"#测试# 通过API自动发布\"\n}"
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"title\": \"测试视频 - API自动发布\",\n  \"desc\": \"这是通过 HUI 发布系统上传的测试视频\",\n  \"tid\": 17,\n  \"tag\": \"测试,API,自动发布\",\n  \"videoPath\": \"{{uploadedFilePath}}\",\n  \"copyright\": 1,\n  \"source\": \"\",\n  \"dynamic\": \"#测试# 通过API自动发布\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/bilibili/publish",

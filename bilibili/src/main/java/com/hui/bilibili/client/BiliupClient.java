@@ -289,39 +289,77 @@ public class BiliupClient {
     /**
      * 提交视频发布任务
      * POST /v1/uploads
+     * <p>
+     * biliup 期望的请求体格式（PostUploads struct）：
+     * {
+     *   "files": ["/data/videos/xxx.mp4"],
+     *   "params": {
+     *     "template_name": "default",
+     *     "title": "视频标题",
+     *     "tid": 17,
+     *     "copyright": 1,
+     *     "tags": ["tag1", "tag2"],
+     *     "description": "简介",
+     *     "user_cookie": "data/{mid}.json",
+     *     ...
+     *   }
+     * }
      */
     public JsonNode submitUpload(PublishRequest request) {
         String url = biliupConfig.getBaseUrl() + "/v1/uploads";
         log.info("Submitting upload task to biliup: title={}, videoPath={}", request.getTitle(), request.getVideoPath());
         try {
-            ObjectNode body = objectMapper.createObjectNode();
-            body.put("copyright", request.getCopyright() != null ? request.getCopyright() : 1);
-            body.put("source", request.getSource() != null ? request.getSource() : "");
-            body.put("tid", request.getTid());
-            body.put("cover", "");
-            body.put("title", request.getTitle());
-            body.put("desc", request.getDesc());
-            body.put("dynamic", request.getDynamic() != null ? request.getDynamic() : "");
-            body.put("tag", request.getTag());
-            body.put("video_path", request.getVideoPath());
+            // 构建 params（对应 biliup 的 UploadStreamer）
+            ObjectNode params = objectMapper.createObjectNode();
+            params.put("id", 0); // UploadStreamer 主键，ad-hoc 上传用 0
+            params.put("template_name", request.getTitle());
+            params.put("title", request.getTitle());
+            params.put("tid", request.getTid());
+            params.put("copyright", request.getCopyright() != null ? request.getCopyright() : 1);
+            params.put("description", request.getDesc() != null ? request.getDesc() : "");
+            params.put("dynamic", request.getDynamic() != null ? request.getDynamic() : "");
+            params.put("copyright_source", request.getSource() != null ? request.getSource() : "");
+
+            // tags: biliup 期望 Vec<String>，从逗号分隔的字符串转换
+            var tagsArray = params.putArray("tags");
+            if (request.getTag() != null && !request.getTag().isBlank()) {
+                for (String tag : request.getTag().split(",")) {
+                    tagsArray.add(tag.trim());
+                }
+            }
+
+            // cookie 文件路径（biliup 容器中的相对路径）
+            params.put("user_cookie", "data/" + request.getUserId() + ".json");
 
             if (request.getCoverPath() != null && !request.getCoverPath().isBlank()) {
-                body.put("cover_path", request.getCoverPath());
+                params.put("cover_path", request.getCoverPath());
             }
             if (request.getDtime() != null && request.getDtime() > 0) {
-                body.put("dtime", request.getDtime());
+                params.put("dtime", request.getDtime());
             }
             if (request.getDolby() != null) {
-                body.put("dolby", request.getDolby());
+                params.put("dolby", request.getDolby());
             }
-            if (request.getOpenSubtitle() != null) {
-                body.put("open_subtitle", request.getOpenSubtitle());
+            if (request.getUpSelectionReply() != null) {
+                params.put("up_selection_reply", request.getUpSelectionReply());
             }
-            body.put("up_selection_reply", request.getUpSelectionReply() != null && request.getUpSelectionReply());
-            body.put("up_close_reply", request.getUpCloseReply() != null && request.getUpCloseReply());
-            body.put("up_close_danmu", request.getUpCloseDanmu() != null && request.getUpCloseDanmu());
+            if (request.getUpCloseReply() != null) {
+                params.put("up_close_reply", request.getUpCloseReply());
+            }
+            if (request.getUpCloseDanmu() != null) {
+                params.put("up_close_danmu", request.getUpCloseDanmu());
+            }
 
-            JsonNode result = authPost(url, objectMapper.writeValueAsString(body));
+            // 构建顶层请求体：{ "files": [...], "params": {...} }
+            ObjectNode body = objectMapper.createObjectNode();
+            var filesArray = body.putArray("files");
+            filesArray.add(request.getVideoPath());
+            body.set("params", params);
+
+            String jsonBody = objectMapper.writeValueAsString(body);
+            log.debug("Upload request body: {}", jsonBody);
+
+            JsonNode result = authPost(url, jsonBody);
             log.info("Upload task submitted successfully");
             return result;
         } catch (Exception e) {
